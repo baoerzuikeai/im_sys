@@ -3,6 +3,8 @@ package util
 import (
 	"crypto/md5"
 	"fmt"
+	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -55,4 +57,13 @@ func Parsetoken(tokenstr string) (*Myclaims, error) {
 		return nil, fmt.Errorf("analys Token Error:%v", err)
 	}
 	return myclaim, nil
+}
+
+func CreateCode() string {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	code := ""
+	for i := 0; i < 6; i++ {
+		code += strconv.Itoa(r.Intn(10))
+	}
+	return code
 }

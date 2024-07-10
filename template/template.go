@@ -4,15 +4,17 @@ import (
 	"bytes"
 	"html/template"
 	"log"
+
+	"github.com/baoer/im_sys/util"
 )
 
 // sendcode template
 func ParseSendCodetemplate() []byte {
 	type TemplateData struct {
-		Code int
+		Code string
 	}
 	data := TemplateData{
-		Code: 10000,
+		Code: util.CreateCode(),
 	}
 
 	// 解析和执行模板

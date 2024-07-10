@@ -74,14 +74,37 @@ func UserDetail() gin.HandlerFunc {
 // 授权码pdswwunzbwnubgih
 func SenCode() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+		uemail := ctx.PostForm("email")
+		if uemail == "" {
+			ctx.JSON(http.StatusOK, gin.H{
+				"code": -1,
+				"msg":  "邮箱不能为空",
+			})
+			return
+		}
+		count, err := models.GetUserBasicCountBy_Email(uemail)
+		if err != nil {
+			ctx.JSON(http.StatusOK, gin.H{
+				"code": -1,
+				"msg":  "查询出错" + err.Error(),
+			})
+			return
+		}
+		if count > 0 {
+			ctx.JSON(http.StatusOK, gin.H{
+				"code": -1,
+				"msg":  "邮箱已经被注册",
+			})
+			return
+		}
 		e := email.NewEmail()
 		e.From = "BaoEr <485191245@qq.com>"
-		e.To = []string{ctx.PostForm("email")}
+		e.To = []string{uemail}
 		e.Subject = "Verification Code"
 		e.Text = []byte("Text Body is, of course, supported!")
 
 		e.HTML = template.ParseSendCodetemplate()
-		err := e.Send("smtp.qq.com:25", smtp.PlainAuth("", "485191245@qq.com", "pdswwunzbwnubgih", "smtp.qq.com"))
+		err = e.Send("smtp.qq.com:25", smtp.PlainAuth("", "485191245@qq.com", "pdswwunzbwnubgih", "smtp.qq.com"))
 		if err != nil {
 			ctx.JSON(http.StatusOK, gin.H{
 				"code": -1,
@@ -89,5 +112,9 @@ func SenCode() gin.HandlerFunc {
 			})
 			return
 		}
+		ctx.JSON(http.StatusOK, gin.H{
+			"code": 200,
+			"msg":  "验证码发送成功",
+		})
 	}
 }
