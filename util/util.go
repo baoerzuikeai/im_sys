@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // Get MD5
@@ -18,15 +17,15 @@ func Getmd5(msg interface{}) string {
 }
 
 type Myclaims struct {
-	UserId primitive.ObjectID `json:"_id"`
-	Email  string             `json:"email"`
+	UserId string `json:"_id"`
+	Email  string `json:"email"`
 	jwt.RegisteredClaims
 }
 
 var secret = []byte("BAOER-IM-SYS")
 
 // Gettoken
-func Gettoken(userid primitive.ObjectID, email string) (string, error) {
+func Gettoken(userid, email string) (string, error) {
 	claims := Myclaims{
 		UserId: userid,
 		Email:  email,

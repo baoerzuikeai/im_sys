@@ -1,6 +1,9 @@
 package main
 
 import (
+	"errors"
+	"log"
+
 	"github.com/baoer/im_sys/router"
 )
 
@@ -12,4 +15,8 @@ func main() {
 	// fmt.Println(str)
 	// myclaims, _ := util.Parsetoken(str)
 	// fmt.Println(myclaims)
+	// http.HandleFunc("/ws", test.HandlerConnecrtions)
+	// log.Fatal(http.ListenAndServe(":8080", nil))
+	err := errors.New("something is wrong!!")
+	log.Println(err)
 }
