@@ -1,15 +1,16 @@
 package service
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/baoer/im_sys/models"
 	"github.com/baoer/im_sys/util"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type PrivateMessage struct {
@@ -23,12 +24,14 @@ type Message struct {
 	NickName     string `json:"nickname"`
 	Uid          string `json:"uid"`
 	Msg          string `json:"msg"`
-	RoomIdentity string `bson:"room_identity"`
+	RoomIdentity string `json:"room_identity"`
 }
 
 var upgrader = websocket.Upgrader{}
-var wsc = make(map[string]*websocket.Conn, 0)
-var mu sync.Mutex // 用于保护wsc的互斥锁
+var prwsc = make(map[string]*websocket.Conn, 0)
+var pbwsc = make(map[string]*websocket.Conn, 0)
+var prmu sync.Mutex // 用于保护wsc的互斥锁
+var pbmu sync.Mutex // 用于保护wsc的互斥锁
 
 func WebSocketsendPrivateMessage() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
@@ -38,28 +41,38 @@ func WebSocketsendPrivateMessage() gin.HandlerFunc {
 			return
 		}
 		defer wsn.Close()
-
 		myclaim := ctx.MustGet("user_claims").(*util.Myclaims)
-		mu.Lock()
-		wsc[myclaim.UserId] = wsn
-		mu.Unlock()
+		prmu.Lock()
+		prwsc[myclaim.UserId] = wsn
+		prmu.Unlock()
 		defer func() {
-			mu.Lock()
-			delete(wsc, myclaim.UserId)
-			mu.Unlock()
+			prmu.Lock()
+			delete(prwsc, myclaim.UserId)
+			prmu.Unlock()
 		}()
 
 		pmessage := new(PrivateMessage)
 		for {
+			pmessage.Uid = myclaim.UserId
 			err := wsn.ReadJSON(pmessage)
 			if err != nil {
 				log.Println(err.Error())
 				break
 			}
-
-			mu.Lock()
-			if v, ok := wsc[pmessage.ToUserID]; ok {
-				pmessage.Uid = myclaim.UserId
+			msg := models.PrivateMessageBasic{
+				Identity:            primitive.NewObjectID(),
+				UserIdentity:        pmessage.Uid,
+				ReceiveUserIdentity: pmessage.ToUserID,
+				Data:                pmessage.Msg,
+				CreatedAt:           time.Now().Unix(),
+			}
+			err = models.InsertOnePrivateMsg(msg)
+			if err != nil {
+				log.Println(err.Error())
+				break
+			}
+			prmu.Lock()
+			if v, ok := prwsc[pmessage.ToUserID]; ok {
 				err = v.WriteJSON(pmessage)
 				if err != nil {
 					log.Println(err.Error())
@@ -76,7 +89,7 @@ func WebSocketsendPrivateMessage() gin.HandlerFunc {
 					"msg":  "用户未在线",
 				})
 			}
-			mu.Unlock()
+			prmu.Unlock()
 
 		}
 	}
@@ -92,33 +105,44 @@ func WebSocketsendChannelMessage() gin.HandlerFunc {
 		defer wsn.Close()
 
 		myclaim := ctx.MustGet("user_claims").(*util.Myclaims)
-		mu.Lock()
-		wsc[myclaim.UserId] = wsn
-		mu.Unlock()
+		pbmu.Lock()
+		pbwsc[myclaim.UserId] = wsn
+		pbmu.Unlock()
 		defer func() {
-			mu.Lock()
-			delete(wsc, myclaim.UserId)
-			mu.Unlock()
+			pbmu.Lock()
+			delete(pbwsc, myclaim.UserId)
+			pbmu.Unlock()
 		}()
 
 		message := new(Message)
 		for {
+			message.Uid = myclaim.UserId
 			err := wsn.ReadJSON(message)
 			if err != nil {
 				log.Println(err.Error())
 				break
 			}
 			//查询同一房间的用户
+			msg := models.PublicMessageBasic{
+				Identity:      primitive.NewObjectID(),
+				UserIdentity:  message.Uid,
+				Room_identity: message.RoomIdentity,
+				Data:          message.Msg,
+				CreatedAt:     time.Now().Unix(),
+			}
+			err = models.InsertOnePublicMsg(msg)
+			if err != nil {
+				log.Println(err.Error())
+				break
+			}
 			users, err := models.GetUsersByRoomIdentity(message.RoomIdentity)
 			if err != nil {
 				log.Println(err.Error())
 				break
 			}
-			mu.Lock()
+			pbmu.Lock()
 			for _, uid := range users {
-				fmt.Println(uid)
-				if v, ok := wsc[uid]; ok {
-					message.Uid = myclaim.UserId
+				if v, ok := pbwsc[uid]; ok {
 					err = v.WriteJSON(message)
 					if err != nil {
 						log.Println(err.Error())
@@ -126,7 +150,7 @@ func WebSocketsendChannelMessage() gin.HandlerFunc {
 					}
 				}
 			}
-			mu.Unlock()
+			pbmu.Unlock()
 		}
 	}
 }

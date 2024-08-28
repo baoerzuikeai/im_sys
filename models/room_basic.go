@@ -9,4 +9,3 @@ type RoomBasic struct {
 	Number        string             `bson:"number"`
 	User_identity string             `bson:"user_identity"`
 }
-

@@ -15,8 +15,12 @@ func Router() *gin.Engine {
 	})
 
 	auth := router.Group("/u", middleware.AuthCheck())
-	auth.GET("/chat/sendmessage/private/", service.WebSocketsendPrivateMessage())
-	auth.GET("/chat/sendmessage/channel/", service.WebSocketsendChannelMessage())
-	auth.GET("/user/detail", service.UserDetail())	
+	auth.GET("/chat/sendmessage/private", service.WebSocketsendPrivateMessage())
+	auth.GET("/chat/sendmessage/channel", service.WebSocketsendChannelMessage())
+	//用户详情
+	auth.GET("/user/detail", service.UserDetail())
+	//聊天列表
+	auth.GET("/getlist/private", service.PrivateChatlist())
+	auth.GET("/getlist/channel", service.ChannelChatlist())
 	return router
 }
